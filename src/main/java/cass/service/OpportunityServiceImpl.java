@@ -8,7 +8,9 @@ import cass.entity.QuotationEntity;
 import cass.repository.OpportunityRepository;
 import cass.repository.QuotationRepository;
 import cass.utils.CSVHelper;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
@@ -16,6 +18,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+@ApplicationScoped
 public class OpportunityServiceImpl implements OpportunityService{
 
     @Inject
@@ -40,8 +43,13 @@ public class OpportunityServiceImpl implements OpportunityService{
     }
 
     @Override
+    @Transactional
     public void saveQuotation(QuotationDTO quotation) {
+        QuotationEntity createQuotation = new QuotationEntity();
+        createQuotation.setDate(new Date());
+        createQuotation.setCurrencyPrice(quotation.getCurrencyPrice());
 
+        quotationRepository.persist(createQuotation);
     }
 
     @Override
