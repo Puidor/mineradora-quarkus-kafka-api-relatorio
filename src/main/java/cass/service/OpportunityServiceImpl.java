@@ -7,12 +7,10 @@ import cass.entity.OpportunityEntity;
 import cass.entity.QuotationEntity;
 import cass.repository.OpportunityRepository;
 import cass.repository.QuotationRepository;
-import cass.utils.CSVHelper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -54,24 +52,21 @@ public class OpportunityServiceImpl implements OpportunityService{
 
     @Override
     public List<OpportunityDTO> generateOpportunityData() {
-        return List.of();
-    }
 
-    @Override
-    public ByteArrayInputStream generateCSVOpportunityReport() {
+        List<OpportunityDTO> opportunities = new ArrayList<>();
 
-        List<OpportunityDTO> opportunityList = new ArrayList<>();
-
-        opportunityRepository.findAll().list().forEach(item -> {
-            opportunityList.add(OpportunityDTO.builder()
-                    .proposalId(item.getProposalId())
-                    .customer(item.getCustomer())
-                    .priceTonne(item.getPriceTonne())
-                    .lastDollarQuotation(item.getLastDollarQuotation())
-                    .build()
-            );
-        });
-
-        return CSVHelper.OpportunitiesToCSV(opportunityList);
+        opportunityRepository
+                .findAll()
+                .stream()
+                .forEach(item ->{
+                    opportunities.add(OpportunityDTO.builder()
+                            .proposalId(item.getProposalId())
+                            .customer(item.getCustomer())
+                            .priceTonne(item.getPriceTonne())
+                            .lastDollarQuotation(item.getLastDollarQuotation())
+                            .build()
+                            );
+                });
+        return opportunities;
     }
 }
