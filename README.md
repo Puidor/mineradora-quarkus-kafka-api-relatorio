@@ -1,77 +1,66 @@
-# report
+# API de Relatórios de Oportunidades - Quarkus
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Este microsserviço atua como um agregador de eventos, consumindo dados de propostas e cotações de moedas via Apache Kafka para gerar um relatório consolidado de oportunidades de negócio.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+A aplicação escuta dois tópicos do Kafka: `proposal` e `quotation`. Ela mantém um registro local das cotações de dólar recebidas. Quando uma nova proposta chega, o serviço a combina com a **última cotação de dólar registrada** para criar uma nova "Oportunidade", persistindo essa informação em seu próprio banco de dados.
 
-## Running the application in dev mode
+Adicionalmente, expõe um endpoint de API seguro (protegido por Keycloak/OIDC) para consultar todos os registros de oportunidades gerados.
 
-You can run your application in dev mode that enables live coding using:
+## ✨ Funcionalidades
 
-```shell script
-./mvnw quarkus:dev
-```
+* **Consumo de Propostas:** Escuta o tópico `proposal` para receber novas propostas de minério.
+* **Consumo de Cotações:** Escuta o tópico `quotation`, salvando localmente cada nova cotação de dólar recebida.
+* **Criação de Oportunidades:** No recebimento de uma proposta, correlaciona-a com a última cotação de dólar salva para gerar um registro de oportunidade (Proposta + Cotação).
+* **Relatório de Oportunidades:** Expõe um endpoint `GET` seguro que retorna a lista completa de todas as oportunidades geradas.
+* **Segurança:** Integração com Keycloak (OIDC) para autenticação e autorização de endpoints.
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## 🚀 Tecnologias Utilizadas
 
-## Packaging and running the application
+* **Java 17+**
+* **Quarkus:** Framework Java nativo para nuvem.
+* **Hibernate ORM com Panache:** Para persistência de dados.
+* **PostgreSQL:** Banco de dados relacional.
+* **SmallRye Reactive Messaging (Kafka):** Para consumo assíncrono de eventos.
+* **Quarkus OIDC (Keycloak):** Para segurança e autenticação baseada em JWT.
+* **Docker:** Para gerenciamento de dependências.
 
-The application can be packaged using:
+## 📋 Pré-requisitos
 
-```shell script
-./mvnw package
-```
+* JDK 17 ou superior
+* Maven 3.8+
+* Docker e Docker Compose
+* Uma instância do **Keycloak** rodando (configurado em `http://localhost:8180/realms/quarkus`).
+* Instâncias dos serviços de **Proposta** e **Cotação** rodando e publicando nos tópicos Kafka.
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+## ⚙️ Como Executar
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+1.  **Inicie os serviços de dependência (Kafka & PostgreSQL):**
 
-If you want to build an _über-jar_, execute the following command:
+    * **Kafka:** Utilize os mesmos comandos de Zookeeper e Kafka do README da "API de Cotação".
+    * **PostgreSQL (Banco deste serviço):**
+      Este serviço requer seu próprio banco de dados (`reportdb`). Execute o comando abaixo se ele ainda não existir:
+        ```bash
+        docker run --name report-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=reportdb -p 5433:5432 -d postgres 
+        ```
+      *(Nota: Se o PostgreSQL do serviço de Cotação (porta 5432) já estiver rodando, este comando usa a porta `5433` na máquina host para evitar conflitos. Ajuste o arquivo `application.properties` deste serviço para `jdbc:postgresql://localhost:5433/reportdb` se necessário).*
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
+2.  **Inicie o Keycloak:**
+    Certifique-se de que seu servidor Keycloak esteja rodando em `http://localhost:8180` com o *realm* `quarkus` e o *client* `backend-service` devidamente configurados.
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+3.  **Execute a aplicação Quarkus:**
 
-## Creating a native executable
+    Abra outro terminal e execute o seguinte comando:
+    ```bash
+    ./mvnw quarkus:dev
+    ```
+    A aplicação estará disponível em `http://localhost:8091`.
 
-You can create a native executable using:
+## 📡 Endpoints da API
 
-```shell script
-./mvnw package -Dnative
-```
+A URL base da API é `http://localhost:8091/api/opportunity`.
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+**Nota:** Todos os endpoints requerem um Token JWT (Bearer Token) válido emitido pelo Keycloak.
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/report-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- Hibernate ORM with Panache ([guide](https://quarkus.io/guides/hibernate-orm-panache)): Simplify your persistence code for Hibernate ORM via the active record or the repository pattern
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-[Related Hibernate with Panache section...](https://quarkus.io/guides/hibernate-orm-panache)
-
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+| Método | Endpoint | Descrição | Roles Permitidas |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/data` | Retorna um relatório (lista) de todas as oportunidades de negócio criadas (Propostas + última cotação do Dólar). | `user`, `manager` |
